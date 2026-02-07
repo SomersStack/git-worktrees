@@ -1,4 +1,4 @@
-# ai-worktrees
+# ai-git-worktrees
 
 Run AI coding tasks in isolated git worktrees — automatically create, work, merge, push, and clean up.
 
@@ -27,7 +27,7 @@ Also includes tools to rescue crashed sessions, batch-merge results, and manage 
 ## Quick start
 
 ```bash
-npm install -g ai-worktrees
+npm install -g ai-git-worktrees
 
 # Run your first task
 gwt "Add input validation to the signup form"
