@@ -30,6 +30,14 @@ vi.mock("../../src/logger.js", () => ({
   promptYesNo: vi.fn(),
 }));
 
+vi.mock("node:fs", () => ({
+  existsSync: vi.fn(() => false),
+}));
+
+vi.mock("node:fs/promises", () => ({
+  cp: vi.fn(),
+}));
+
 import { execInteractive } from "../../src/exec.js";
 import { findClaude, buildClaudeArgs } from "../../src/claude.js";
 import {

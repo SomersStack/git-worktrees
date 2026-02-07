@@ -23,6 +23,7 @@ describe("parseMergeArgs", () => {
     const opts = parseMergeArgs(["feat/test", "--no-push", "--no-cleanup"]);
     expect(opts).toEqual({
       branch: "feat/test",
+      branches: ["feat/test"],
       noPush: true,
       noCleanup: true,
     });
@@ -37,7 +38,9 @@ describe("parseMergeArgs", () => {
     expect(() => parseMergeArgs(["feat/test", "--bogus"])).toThrow();
   });
 
-  it("exits on unexpected positional", () => {
-    expect(() => parseMergeArgs(["a", "b"])).toThrow();
+  it("accepts multiple branch positionals", () => {
+    const opts = parseMergeArgs(["a", "b"]);
+    expect(opts?.branch).toBe("a");
+    expect(opts?.branches).toEqual(["a", "b"]);
   });
 });

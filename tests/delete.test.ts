@@ -22,7 +22,9 @@ describe("parseDeleteArgs", () => {
     expect(() => parseDeleteArgs(["feat/test", "--bogus"])).toThrow();
   });
 
-  it("exits on unexpected positional", () => {
-    expect(() => parseDeleteArgs(["a", "b"])).toThrow();
+  it("accepts multiple branch positionals", () => {
+    const opts = parseDeleteArgs(["a", "b"]);
+    expect(opts?.branch).toBe("a");
+    expect(opts?.branches).toEqual(["a", "b"]);
   });
 });

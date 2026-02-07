@@ -179,7 +179,7 @@ describe("git", () => {
       expect(result.success).toBe(true);
       expect(mockExec).toHaveBeenCalledWith(
         "git",
-        ["merge", "feat/x", "--no-edit"],
+        ["merge", "feat/x", "--no-edit", "--autostash"],
         { cwd: "/cwd" },
       );
     });
@@ -196,7 +196,7 @@ describe("git", () => {
   describe("getUnmergedFiles", () => {
     it("returns list of files", async () => {
       mockExec.mockResolvedValueOnce(
-        makeExecResult({ stdout: "a.ts\nb.ts\n" }),
+        makeExecResult({ stdout: "100644 abc123 1\ta.ts\n100644 def456 1\tb.ts\n" }),
       );
       expect(await getUnmergedFiles("/cwd")).toEqual(["a.ts", "b.ts"]);
     });
