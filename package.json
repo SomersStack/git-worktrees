@@ -1,0 +1,33 @@
+{
+  "name": "ai-worktrees",
+  "version": "0.5.0",
+  "description": "Git Worktree Task: create worktree, run Claude, merge, push, clean up",
+  "type": "module",
+  "bin": {
+    "gwt": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "git",
+    "worktree",
+    "claude",
+    "ai",
+    "cli"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
