@@ -32,7 +32,7 @@ Open beads:
 export async function fetchReadyBeads(): Promise<string> {
   logStep("Fetching ready beads...");
 
-  const result = await exec("bd", ["ready"]);
+  const result = await exec("bd", ["ready", "-n", "0"]);
 
   if (result.exitCode !== 0) {
     const msg = result.stderr.trim() || "bd command failed";
