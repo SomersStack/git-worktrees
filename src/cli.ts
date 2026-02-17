@@ -3,8 +3,10 @@ import { printSummary } from "./summary.js";
 import { phaseWork, phaseMerge, phasePush, phaseCleanup } from "./phases/index.js";
 import { generateBranchName } from "./branch-name.js";
 import type { GwtOptions } from "./types.js";
+import { createRequire } from "node:module";
 
-const GWT_VERSION = "0.6.1";
+const require = createRequire(import.meta.url);
+const { version: GWT_VERSION } = require("../package.json");
 
 const USAGE = `gwt - Git Worktree Task
 
