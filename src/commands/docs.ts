@@ -5,6 +5,7 @@ Commands:
   gwt "<prompt>"                  Run task in new worktree (auto-named branch)
   gwt <branch> "<prompt>"         Run task with explicit branch name
   gwt split "<task>"              Decompose task into parallel work streams
+  gwt beads                       Group open beads into parallel sessions
   gwt rescue <branch>             Resume Claude session in orphaned worktree
   gwt merge <branch> [...]        Merge worktree branch(es) (no AI)
   gwt delete <branch> [...]       Remove worktree(s) and their branches
@@ -24,7 +25,7 @@ Global Options:
 
 Automatic lifecycle: worktree create -> claude work -> merge -> push -> cleanup
 
-Detail: gwt docs <split|rescue|merge|delete|status|workflows>`;
+Detail: gwt docs <split|beads|rescue|merge|delete|status|workflows>`;
 
 const DOCS_SPLIT = `gwt split - Parallel task decomposition
 
@@ -51,6 +52,32 @@ Examples:
   gwt split "add auth, write tests, update docs"
   gwt split "build login page and add API rate limiting" -p --max-budget-usd 5
   gwt split --file tasks.md --model sonnet --no-push`;
+
+const DOCS_BEADS = `gwt beads - Split open beads into parallel agent sessions
+
+Usage:
+  gwt beads [options]
+
+Reads all ready beads (via \`bd ready\`), uses Claude to group them into
+small clusters of closely related items, and spawns a parallel gwt session
+per group. Each session claims its beads, does the work, and closes them.
+
+Options:
+  --grouping-model <model>   Model for the grouping step (default: sonnet)
+  --interactive              Run streams sequentially (interactive Claude)
+  --model <model>            Claude model override for each work stream
+  --max-budget-usd <n>       Cost limit per stream
+  --permission-mode <m>      Permission mode for Claude
+  --from <ref>               Base ref for worktrees
+  --no-push                  Skip push after merge
+  --no-cleanup               Keep worktrees after merge
+  -- <flags>                 Pass remaining flags to claude verbatim
+
+Examples:
+  gwt beads
+  gwt beads --max-budget-usd 5
+  gwt beads --grouping-model opus --model sonnet
+  gwt beads --interactive`;
 
 const DOCS_RESCUE = `gwt rescue - Resume work in an orphaned worktree
 
@@ -188,10 +215,11 @@ Examples:
   gwt status --json
   gwt status --json | jq '.worktrees[] | select(.claudeRunning)'`;
 
-const VALID_TOPICS = ["split", "rescue", "merge", "delete", "status", "workflows"] as const;
+const VALID_TOPICS = ["split", "beads", "rescue", "merge", "delete", "status", "workflows"] as const;
 
 const TOPIC_MAP: Record<string, string> = {
   split: DOCS_SPLIT,
+  beads: DOCS_BEADS,
   rescue: DOCS_RESCUE,
   merge: DOCS_MERGE,
   delete: DOCS_DELETE,

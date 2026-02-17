@@ -12,6 +12,7 @@ Usage: gwt                                    # new worktree + fresh Claude sess
        gwt "<prompt>" [options]               # auto-named branch
        gwt <branch> "<prompt>" [options]      # explicit branch
        gwt split "<task>" [options]           # split task into parallel streams
+       gwt beads [options]                    # split open beads into parallel sessions
        [-- <extra-claude-flags>...]
 
 Options:
@@ -30,11 +31,13 @@ Options:
 Subcommands:
   split                    Decompose a task into independent work streams
                            and run them in parallel. See: gwt split --help
+  beads                    Group open beads and run each group in parallel.
+                           See: gwt beads --help
   rescue <branch>          Resume a Claude session in an orphaned worktree
   merge  <branch> [...]    Merge worktree branch(es) (no AI). See: gwt merge --help
   delete <branch> [...]    Remove worktree(s) and their branches. See: gwt delete --help
   status                   Show worktree and session status. See: gwt status --help
-  docs   [topic]           AI-friendly docs. Topics: split, rescue, merge, delete, status, workflows
+  docs   [topic]           AI-friendly docs. Topics: split, beads, rescue, merge, delete, status, workflows
 
 Examples:
   gwt
@@ -162,6 +165,12 @@ async function main(): Promise<void> {
   if (args[0] === "split") {
     const { splitMain } = await import("./commands/split.js");
     await splitMain(args.slice(1));
+    return;
+  }
+
+  if (args[0] === "beads") {
+    const { beadsMain } = await import("./commands/beads.js");
+    await beadsMain(args.slice(1));
     return;
   }
 

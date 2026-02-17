@@ -60,6 +60,18 @@ export interface PhaseContext {
   worktreePath: string;
 }
 
+export interface BeadsOptions {
+  interactive: boolean;
+  groupingModel: string;
+  model: string;
+  maxBudgetUsd: string;
+  permissionMode: string;
+  fromRef: string;
+  noPush: boolean;
+  noCleanup: boolean;
+  extraClaudeFlags: string[];
+}
+
 export interface PhaseResult {
   success: boolean;
   skipped?: boolean;
