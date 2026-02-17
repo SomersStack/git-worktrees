@@ -12,7 +12,7 @@ function buildGwtArgs(
   stream: WorkStream,
   options: SplitOptions,
 ): string[] {
-  const args = [stream.branch, stream.prompt, "-p", "--work-only"];
+  const args = [stream.branch, stream.prompt, "-p", "--work-only", "--no-cleanup"];
 
   if (options.model) {
     args.push("--model", options.model);
