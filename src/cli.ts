@@ -4,7 +4,7 @@ import { phaseWork, phaseMerge, phasePush, phaseCleanup } from "./phases/index.j
 import { generateBranchName } from "./branch-name.js";
 import type { GwtOptions } from "./types.js";
 
-const GWT_VERSION = "1.0.0";
+const GWT_VERSION = "0.6.1";
 
 const USAGE = `gwt - Git Worktree Task
 
