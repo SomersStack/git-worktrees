@@ -178,7 +178,9 @@ export function runStreamsInTerminals(
     logStep(`[OPEN] ${stream.id}: ${stream.title} → ${stream.branch}`);
 
     if (platform() === "darwin") {
-      const shellCmd = [gwtBin, ...args].map(shellQuote).join(" ");
+      const cdCmd = `cd ${shellQuote(process.cwd())}`;
+      const gwtCmd = [gwtBin, ...args].map(shellQuote).join(" ");
+      const shellCmd = `${cdCmd} && ${gwtCmd}`;
       const escaped = shellCmd.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       spawnSync("osascript", [
         "-e", 'tell application "Terminal"',
