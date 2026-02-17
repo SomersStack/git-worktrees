@@ -4,6 +4,7 @@ import {
   runStreamsParallel,
   runStreamsSequential,
   runStreamsDetached,
+  runStreamsInTerminals,
   type RunResult,
 } from "../stream-runner.js";
 import { phaseMerge, phasePush, phaseCleanup } from "../phases/index.js";
@@ -19,8 +20,9 @@ using Claude, and spawns a parallel gwt session per group.
 
 Options:
   --grouping-model <model>   Model for grouping step (default: sonnet)
-  --interactive              Run streams sequentially (interactive Claude)
-  --detach                   Spawn worktrees and exit immediately
+  --interactive              Run streams sequentially in current terminal
+  -p, --print, --headless    Run headless (non-interactive, no terminal windows)
+  --detach                   Spawn headless worktrees and exit immediately
   --model <model>            Claude model override for each work stream
   --max-budget-usd <n>       Cost limit per stream
   --permission-mode <m>      Permission mode for Claude
@@ -30,15 +32,20 @@ Options:
   -h, --help                 Show this help
   --                         Pass remaining flags to claude verbatim
 
+By default, opens each stream in its own Terminal window with an interactive
+Claude session. Use -p/--headless for background execution.
+
 Examples:
   gwt beads
   gwt beads --max-budget-usd 5
   gwt beads --grouping-model opus --model sonnet
   gwt beads --interactive
-  gwt beads --detach`;
+  gwt beads --detach
+  gwt beads -p --max-budget-usd 5`;
 
 export function parseBeadsArgs(argv: string[]): BeadsOptions | null {
   let interactive = false;
+  let headless = false;
   let detach = false;
   let groupingModel = "";
   let model = "";
@@ -78,7 +85,8 @@ export function parseBeadsArgs(argv: string[]): BeadsOptions | null {
         break;
       case "-p":
       case "--print":
-        // print mode is default for beads, accept but ignore
+      case "--headless":
+        headless = true;
         i++;
         break;
       case "--model":
@@ -120,6 +128,7 @@ export function parseBeadsArgs(argv: string[]): BeadsOptions | null {
 
   return {
     interactive,
+    headless,
     detach,
     groupingModel,
     model,
@@ -201,6 +210,7 @@ function toSplitOptions(opts: BeadsOptions): SplitOptions {
     input: "",
     inputFile: "",
     interactive: opts.interactive,
+    headless: opts.headless,
     model: opts.model,
     maxBudgetUsd: opts.maxBudgetUsd,
     permissionMode: opts.permissionMode,
@@ -266,8 +276,16 @@ export async function beadsMain(argv: string[]): Promise<void> {
   let runResults: RunResult[];
   if (options.interactive) {
     runResults = await runStreamsSequential(streams, splitOpts, gwtBin);
-  } else {
+  } else if (options.headless) {
     runResults = await runStreamsParallel(streams, splitOpts, gwtBin);
+  } else {
+    // Default: open each stream in its own Terminal window
+    const branches = runStreamsInTerminals(streams, splitOpts, gwtBin);
+    logStep(`Opened ${branches.length} Terminal window(s). Use these to check/merge when done:`);
+    for (const b of branches) {
+      process.stderr.write(`  gwt merge ${b}\n`);
+    }
+    return;
   }
 
   // Step 4: Post-process each successful stream (merge, push, cleanup)

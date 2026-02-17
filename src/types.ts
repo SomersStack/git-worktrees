@@ -16,6 +16,7 @@ export interface SplitOptions {
   input: string;
   inputFile: string;
   interactive: boolean;
+  headless: boolean;
   model: string;
   maxBudgetUsd: string;
   permissionMode: string;
@@ -64,6 +65,7 @@ export interface PhaseContext {
 
 export interface BeadsOptions {
   interactive: boolean;
+  headless: boolean;
   detach: boolean;
   groupingModel: string;
   model: string;

@@ -4,6 +4,7 @@ import { splitWork } from "../splitter.js";
 import {
   runStreamsParallel,
   runStreamsSequential,
+  runStreamsInTerminals,
   type RunResult,
 } from "../stream-runner.js";
 import { phaseMerge, phasePush, phaseCleanup } from "../phases/index.js";
@@ -17,8 +18,8 @@ Usage: gwt split "<task>" [options]
 
 Options:
   --file <path>            Read task description from a file
-  --interactive            Run streams sequentially (interactive Claude)
-  -p, --print              Non-interactive mode (claude -p) [default for split]
+  --interactive            Run streams sequentially in current terminal
+  -p, --print, --headless  Run headless (non-interactive, no terminal windows)
   --model <model>          Claude model override
   --max-budget-usd <n>     Cost limit per stream
   --permission-mode <m>    Permission mode for Claude
@@ -28,15 +29,20 @@ Options:
   -h, --help               Show this help
   --                       Pass remaining flags to claude verbatim
 
+By default, opens each stream in its own Terminal window with an interactive
+Claude session. Use -p/--headless for background execution.
+
 Examples:
   gwt split "build auth, add tests, fix navbar"
   gwt split --file tasks.md --max-budget-usd 5
-  gwt split "implement login and signup" --interactive`;
+  gwt split "implement login and signup" --interactive
+  gwt split "add tests, fix lint" -p --max-budget-usd 5`;
 
 export function parseSplitArgs(argv: string[]): SplitOptions | null {
   let input = "";
   let inputFile = "";
   let interactive = false;
+  let headless = false;
   let model = "";
   let maxBudgetUsd = "";
   let permissionMode = "";
@@ -70,7 +76,8 @@ export function parseSplitArgs(argv: string[]): SplitOptions | null {
         break;
       case "-p":
       case "--print":
-        // print mode is default for split, accept but ignore
+      case "--headless":
+        headless = true;
         i++;
         break;
       case "--model":
@@ -125,6 +132,7 @@ export function parseSplitArgs(argv: string[]): SplitOptions | null {
     input,
     inputFile,
     interactive,
+    headless,
     model,
     maxBudgetUsd,
     permissionMode,
@@ -256,8 +264,16 @@ export async function splitMain(argv: string[]): Promise<void> {
   let runResults: RunResult[];
   if (options.interactive) {
     runResults = await runStreamsSequential(streams, options, gwtBin);
-  } else {
+  } else if (options.headless) {
     runResults = await runStreamsParallel(streams, options, gwtBin);
+  } else {
+    // Default: open each stream in its own Terminal window
+    const branches = runStreamsInTerminals(streams, options, gwtBin);
+    logStep(`Opened ${branches.length} Terminal window(s). Use these to check/merge when done:`);
+    for (const b of branches) {
+      process.stderr.write(`  gwt merge ${b}\n`);
+    }
+    return;
   }
 
   // Step 3: Post-process each successful stream (merge, push, cleanup)

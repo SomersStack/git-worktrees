@@ -134,7 +134,7 @@ export async function groupBeads(
         id: item.id,
         title: item.title,
         prompt: item.prompt,
-        branch: generateBranchName(),
+        branch: generateBranchName(item.id),
       };
     },
   );

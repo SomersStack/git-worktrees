@@ -1,4 +1,5 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { platform } from "node:os";
 import { exec, execInteractive } from "./exec.js";
 import { logStep, logInfo, logError, logWarn } from "./logger.js";
 import type { WorkStream, SplitOptions } from "./types.js";
@@ -32,11 +33,21 @@ function extractReason(stderr: string): string | undefined {
   return last || undefined;
 }
 
+function shellQuote(s: string): string {
+  return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
 function buildGwtArgs(
   stream: WorkStream,
   options: SplitOptions,
+  opts: { headless?: boolean } = {},
 ): string[] {
-  const args = [stream.branch, stream.prompt, "-p", "--work-only", "--no-cleanup"];
+  const headless = opts.headless ?? false;
+  const args = [stream.branch, stream.prompt, "--work-only", "--no-cleanup"];
+
+  if (headless) {
+    args.push("-p");
+  }
 
   if (options.model) {
     args.push("--model", options.model);
@@ -51,7 +62,19 @@ function buildGwtArgs(
     args.push("--from", options.fromRef);
   }
 
-  if (options.extraClaudeFlags.length > 0) {
+  if (headless) {
+    // Non-interactive streams have no terminal to approve permissions.
+    // Auto-skip permissions unless the user explicitly set a permission mode.
+    if (!options.permissionMode) {
+      if (options.extraClaudeFlags.length > 0) {
+        args.push("--", "--dangerously-skip-permissions", ...options.extraClaudeFlags);
+      } else {
+        args.push("--", "--dangerously-skip-permissions");
+      }
+    } else if (options.extraClaudeFlags.length > 0) {
+      args.push("--", ...options.extraClaudeFlags);
+    }
+  } else if (options.extraClaudeFlags.length > 0) {
     args.push("--", ...options.extraClaudeFlags);
   }
 
@@ -63,7 +86,7 @@ export async function runSingleStream(
   options: SplitOptions,
   gwtBin: string,
 ): Promise<RunResult> {
-  const args = buildGwtArgs(stream, options);
+  const args = buildGwtArgs(stream, options, { headless: true });
 
   if (options.interactive) {
     logStep(`[START] ${stream.id}: ${stream.title}`);
@@ -139,6 +162,45 @@ export async function runStreamsSequential(
   return results;
 }
 
+/**
+ * Open each stream in its own Terminal window with an interactive Claude session.
+ * Returns the branch names. The parent process does not wait for completion.
+ */
+export function runStreamsInTerminals(
+  streams: WorkStream[],
+  options: SplitOptions,
+  gwtBin: string,
+): string[] {
+  const branches: string[] = [];
+
+  for (const stream of streams) {
+    const args = buildGwtArgs(stream, options, { headless: false });
+    logStep(`[OPEN] ${stream.id}: ${stream.title} → ${stream.branch}`);
+
+    if (platform() === "darwin") {
+      const shellCmd = [gwtBin, ...args].map(shellQuote).join(" ");
+      const escaped = shellCmd.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      spawnSync("osascript", [
+        "-e", 'tell application "Terminal"',
+        "-e", "activate",
+        "-e", `do script "${escaped}"`,
+        "-e", "end tell",
+      ]);
+    } else {
+      // Fallback: detached background process (no visible window)
+      const child = spawn(gwtBin, args, {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+    }
+
+    branches.push(stream.branch);
+  }
+
+  return branches;
+}
+
 export function runStreamsDetached(
   streams: WorkStream[],
   options: SplitOptions,
@@ -147,7 +209,7 @@ export function runStreamsDetached(
   const branches: string[] = [];
 
   for (const stream of streams) {
-    const args = buildGwtArgs(stream, options);
+    const args = buildGwtArgs(stream, options, { headless: true });
     logStep(`[DETACH] ${stream.id}: ${stream.title} → ${stream.branch}`);
 
     const child = spawn(gwtBin, args, {
