@@ -1,0 +1,35 @@
+{
+  "project_name": "clier",
+  "global_env": true,
+  "safety": {
+    "max_ops_per_minute": 60,
+    "debounce_ms": 100
+  },
+  "pipeline": [
+    {
+      "name": "test",
+      "command": "npm test",
+      "type": "task"
+    },
+    {
+      "name": "build",
+      "command": "npm run build",
+      "type": "task",
+      "trigger_on": [
+        "test:success"
+      ]
+    },
+    {
+      "name": "bump package version",
+      "type": "task",
+      "command": "npm version minor --no-git-tag-version",
+      "manual": true
+    },
+    {
+      "name": "redeploy-local",
+      "command": "npm run build && npm uninstall -g ai-git-worktrees && npm link",
+      "type": "task",
+      "manual": true
+    }
+  ]
+}
