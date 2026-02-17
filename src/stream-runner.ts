@@ -1,11 +1,35 @@
+import { spawn } from "node:child_process";
 import { exec, execInteractive } from "./exec.js";
-import { logStep, logInfo, logError } from "./logger.js";
+import { logStep, logInfo, logError, logWarn } from "./logger.js";
 import type { WorkStream, SplitOptions } from "./types.js";
 
 export interface RunResult {
   stream: WorkStream;
   success: boolean;
+  skipped?: boolean;
   error?: string;
+  reason?: string;
+}
+
+const NO_CHANGES_PATTERNS = [
+  /No new commits/i,
+  /Done \(no changes\)/i,
+];
+
+function isNoChangesError(stderr: string): boolean {
+  const tail = stderr.split("\n").slice(-10).join("\n");
+  return NO_CHANGES_PATTERNS.some((p) => p.test(tail));
+}
+
+function extractReason(stderr: string): string | undefined {
+  const lines = stderr.split("\n").filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return undefined;
+  // Return last meaningful line, stripped of ANSI and log prefixes
+  const last = lines[lines.length - 1]
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .replace(/^\[.*?\]\s*/, "")
+    .trim();
+  return last || undefined;
 }
 
 function buildGwtArgs(
@@ -54,6 +78,13 @@ export async function runSingleStream(
   const result = await exec(gwtBin, args);
 
   if (result.exitCode !== 0) {
+    if (isNoChangesError(result.stderr)) {
+      const reason = extractReason(result.stderr) || "no changes";
+      logWarn(`[SKIP] ${stream.id}: ${stream.title} — ${reason}`);
+      return { stream, success: true, skipped: true, reason };
+    }
+
+    const reason = extractReason(result.stderr);
     logError(`[FAIL] ${stream.id}: ${stream.title}`);
     if (result.stderr) {
       process.stderr.write(result.stderr.split("\n").slice(-5).join("\n") + "\n");
@@ -62,6 +93,7 @@ export async function runSingleStream(
       stream,
       success: false,
       error: `exited with code ${result.exitCode}`,
+      reason,
     };
   }
 
@@ -105,4 +137,27 @@ export async function runStreamsSequential(
     results.push(result);
   }
   return results;
+}
+
+export function runStreamsDetached(
+  streams: WorkStream[],
+  options: SplitOptions,
+  gwtBin: string,
+): string[] {
+  const branches: string[] = [];
+
+  for (const stream of streams) {
+    const args = buildGwtArgs(stream, options);
+    logStep(`[DETACH] ${stream.id}: ${stream.title} → ${stream.branch}`);
+
+    const child = spawn(gwtBin, args, {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+
+    branches.push(stream.branch);
+  }
+
+  return branches;
 }

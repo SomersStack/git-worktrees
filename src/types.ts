@@ -35,7 +35,9 @@ export interface WorkStream {
 export interface StreamResult {
   stream: WorkStream;
   success: boolean;
+  skipped?: boolean;
   error?: string;
+  reason?: string;
   merged: boolean;
   pushed: boolean;
   cleaned: boolean;
@@ -62,6 +64,7 @@ export interface PhaseContext {
 
 export interface BeadsOptions {
   interactive: boolean;
+  detach: boolean;
   groupingModel: string;
   model: string;
   maxBudgetUsd: string;

@@ -3,6 +3,7 @@ import { fetchReadyBeads, groupBeads } from "../bead-grouper.js";
 import {
   runStreamsParallel,
   runStreamsSequential,
+  runStreamsDetached,
   type RunResult,
 } from "../stream-runner.js";
 import { phaseMerge, phasePush, phaseCleanup } from "../phases/index.js";
@@ -19,6 +20,7 @@ using Claude, and spawns a parallel gwt session per group.
 Options:
   --grouping-model <model>   Model for grouping step (default: sonnet)
   --interactive              Run streams sequentially (interactive Claude)
+  --detach                   Spawn worktrees and exit immediately
   --model <model>            Claude model override for each work stream
   --max-budget-usd <n>       Cost limit per stream
   --permission-mode <m>      Permission mode for Claude
@@ -32,10 +34,12 @@ Examples:
   gwt beads
   gwt beads --max-budget-usd 5
   gwt beads --grouping-model opus --model sonnet
-  gwt beads --interactive`;
+  gwt beads --interactive
+  gwt beads --detach`;
 
 export function parseBeadsArgs(argv: string[]): BeadsOptions | null {
   let interactive = false;
+  let detach = false;
   let groupingModel = "";
   let model = "";
   let maxBudgetUsd = "";
@@ -66,6 +70,10 @@ export function parseBeadsArgs(argv: string[]): BeadsOptions | null {
         break;
       case "--interactive":
         interactive = true;
+        i++;
+        break;
+      case "--detach":
+        detach = true;
         i++;
         break;
       case "-p":
@@ -112,6 +120,7 @@ export function parseBeadsArgs(argv: string[]): BeadsOptions | null {
 
   return {
     interactive,
+    detach,
     groupingModel,
     model,
     maxBudgetUsd,
@@ -140,17 +149,19 @@ function printBeadsSummary(results: StreamResult[]): void {
   );
 
   for (const r of results) {
-    const status = r.success
-      ? `${GREEN}OK${RESET}`
-      : `${RED}FAIL${RESET}`;
+    const status = r.skipped
+      ? `${YELLOW}SKIP${RESET}`
+      : r.success
+        ? `${GREEN}OK${RESET}  `
+        : `${RED}FAIL${RESET}`;
     const merge = r.merged
       ? "merged"
-      : r.success
+      : r.success && !r.skipped
         ? `${YELLOW}not merged${RESET}`
         : "—";
     const push = r.pushed
       ? "pushed"
-      : r.success
+      : r.success && !r.skipped
         ? `${YELLOW}not pushed${RESET}`
         : "—";
     const clean = r.cleaned ? "cleaned" : "kept";
@@ -158,9 +169,14 @@ function printBeadsSummary(results: StreamResult[]): void {
     process.stderr.write(
       `  ${status}  ${r.stream.id}: ${r.stream.title}\n`,
     );
-    process.stderr.write(
-      `       merge: ${merge}  push: ${push}  cleanup: ${clean}\n`,
-    );
+    if (!r.skipped) {
+      process.stderr.write(
+        `       merge: ${merge}  push: ${push}  cleanup: ${clean}\n`,
+      );
+    }
+    if (r.reason) {
+      process.stderr.write(`       reason: ${r.reason}\n`);
+    }
     if (r.error) {
       process.stderr.write(`       error: ${r.error}\n`);
     }
@@ -170,11 +186,14 @@ function printBeadsSummary(results: StreamResult[]): void {
     "═══════════════════════════════════════════════\n",
   );
 
-  const succeeded = results.filter((r) => r.success).length;
+  const succeeded = results.filter((r) => r.success && !r.skipped).length;
+  const skipped = results.filter((r) => r.skipped).length;
   const failed = results.filter((r) => !r.success).length;
-  process.stderr.write(
-    `${BOLD}${succeeded} succeeded, ${failed} failed${RESET}\n`,
-  );
+  const parts: string[] = [];
+  parts.push(`${succeeded} succeeded`);
+  if (skipped > 0) parts.push(`${skipped} skipped`);
+  parts.push(`${failed} failed`);
+  process.stderr.write(`${BOLD}${parts.join(", ")}${RESET}\n`);
 }
 
 function toSplitOptions(opts: BeadsOptions): SplitOptions {
@@ -234,6 +253,16 @@ export async function beadsMain(argv: string[]): Promise<void> {
 
   // Step 3: Run streams
   const splitOpts = toSplitOptions(options);
+
+  if (options.detach) {
+    const branches = runStreamsDetached(streams, splitOpts, gwtBin);
+    logStep(`Detached ${branches.length} stream(s). Use these to check on them:`);
+    for (const b of branches) {
+      process.stderr.write(`  gwt rescue ${b}\n`);
+    }
+    return;
+  }
+
   let runResults: RunResult[];
   if (options.interactive) {
     runResults = await runStreamsSequential(streams, splitOpts, gwtBin);
@@ -248,13 +277,15 @@ export async function beadsMain(argv: string[]): Promise<void> {
     const result: StreamResult = {
       stream: rr.stream,
       success: rr.success,
+      skipped: rr.skipped,
       error: rr.error,
+      reason: rr.reason,
       merged: false,
       pushed: false,
       cleaned: false,
     };
 
-    if (!rr.success) {
+    if (!rr.success || rr.skipped) {
       finalResults.push(result);
       continue;
     }
@@ -319,7 +350,7 @@ export async function beadsMain(argv: string[]): Promise<void> {
   // Step 5: Summary
   printBeadsSummary(finalResults);
 
-  const anyFailed = finalResults.some((r) => !r.success);
+  const anyFailed = finalResults.some((r) => !r.success && !r.skipped);
   if (anyFailed) {
     process.exit(1);
   }
