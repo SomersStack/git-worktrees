@@ -58,8 +58,8 @@ describe("git", () => {
       );
       // Second call: worktree add -b
       mockExec.mockResolvedValueOnce(makeExecResult());
-      const ok = await createWorktree("feat/x", undefined, "/cwd");
-      expect(ok).toBe(true);
+      const result = await createWorktree("feat/x", undefined, "/cwd");
+      expect(result).toEqual({ created: true, error: "" });
       expect(mockExec).toHaveBeenCalledWith(
         "git",
         ["worktree", "add", "-b", "feat/x", expect.stringContaining("feat-x")],
@@ -88,8 +88,8 @@ describe("git", () => {
       mockExec.mockResolvedValueOnce(makeExecResult({ exitCode: 1 }));
       // Fallback succeeds
       mockExec.mockResolvedValueOnce(makeExecResult());
-      const ok = await createWorktree("feat/x", undefined, "/cwd");
-      expect(ok).toBe(true);
+      const result = await createWorktree("feat/x", undefined, "/cwd");
+      expect(result).toEqual({ created: true, error: "" });
       expect(mockExec).toHaveBeenCalledWith(
         "git",
         ["worktree", "add", expect.stringContaining("feat-x"), "feat/x"],
@@ -97,13 +97,14 @@ describe("git", () => {
       );
     });
 
-    it("returns false on failure", async () => {
+    it("returns error on failure", async () => {
       mockExec.mockResolvedValueOnce(
         makeExecResult({ stdout: "/repo\n" }),
       );
-      mockExec.mockResolvedValueOnce(makeExecResult({ exitCode: 1 }));
-      mockExec.mockResolvedValueOnce(makeExecResult({ exitCode: 1 }));
-      expect(await createWorktree("feat/x", undefined, "/cwd")).toBe(false);
+      mockExec.mockResolvedValueOnce(makeExecResult({ exitCode: 1, stderr: "fatal: branch already checked out" }));
+      mockExec.mockResolvedValueOnce(makeExecResult({ exitCode: 1, stderr: "fatal: path already exists" }));
+      const result = await createWorktree("feat/x", undefined, "/cwd");
+      expect(result).toEqual({ created: false, error: "fatal: path already exists" });
     });
   });
 

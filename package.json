@@ -1,6 +1,6 @@
 {
   "name": "ai-git-worktrees",
-  "version": "0.8.1",
+  "version": "0.10.0",
   "description": "Git Worktree Task: create worktree, run Claude, merge, push, clean up",
   "type": "module",
   "bin": {

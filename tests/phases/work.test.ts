@@ -65,7 +65,7 @@ vi.spyOn(process.stderr, "write").mockReturnValue(true);
 
 function setupNormalFlow() {
   mockGetCurrentBranch.mockResolvedValue("main");
-  mockCreateWorktree.mockResolvedValue(true);
+  mockCreateWorktree.mockResolvedValue({ created: true, error: "" });
   mockGetWorktreePath.mockResolvedValue("/worktree/feat-test");
   mockFindClaude.mockResolvedValue("/usr/bin/claude");
   mockBuildClaudeArgs.mockReturnValue(["Do something"]);
@@ -91,7 +91,7 @@ describe("phaseWork", () => {
 
   it("reuses existing worktree on create failure", async () => {
     mockGetCurrentBranch.mockResolvedValue("main");
-    mockCreateWorktree.mockResolvedValue(false);
+    mockCreateWorktree.mockResolvedValue({ created: false, error: "fatal: some git error" });
     mockWorktreeExists.mockResolvedValue(true);
     mockGetWorktreePath.mockResolvedValue("/worktree/feat-test");
     mockFindClaude.mockResolvedValue("/usr/bin/claude");
@@ -108,7 +108,7 @@ describe("phaseWork", () => {
 
   it("exits when worktree create fails and does not exist", async () => {
     mockGetCurrentBranch.mockResolvedValue("main");
-    mockCreateWorktree.mockResolvedValue(false);
+    mockCreateWorktree.mockResolvedValue({ created: false, error: "fatal: some git error" });
     mockWorktreeExists.mockResolvedValue(false);
 
     await expect(phaseWork(makeOptions())).rejects.toThrow();
@@ -116,7 +116,7 @@ describe("phaseWork", () => {
 
   it("exits when claude non-zero and user declines", async () => {
     mockGetCurrentBranch.mockResolvedValue("main");
-    mockCreateWorktree.mockResolvedValue(true);
+    mockCreateWorktree.mockResolvedValue({ created: true, error: "" });
     mockGetWorktreePath.mockResolvedValue("/wt");
     mockFindClaude.mockResolvedValue("/usr/bin/claude");
     mockBuildClaudeArgs.mockReturnValue(["x"]);
@@ -128,7 +128,7 @@ describe("phaseWork", () => {
 
   it("continues when claude non-zero but user confirms", async () => {
     mockGetCurrentBranch.mockResolvedValue("main");
-    mockCreateWorktree.mockResolvedValue(true);
+    mockCreateWorktree.mockResolvedValue({ created: true, error: "" });
     mockGetWorktreePath.mockResolvedValue("/wt");
     mockFindClaude.mockResolvedValue("/usr/bin/claude");
     mockBuildClaudeArgs.mockReturnValue(["x"]);
@@ -144,7 +144,7 @@ describe("phaseWork", () => {
 
   it("exits early when no new commits (same HEAD)", async () => {
     mockGetCurrentBranch.mockResolvedValue("main");
-    mockCreateWorktree.mockResolvedValue(true);
+    mockCreateWorktree.mockResolvedValue({ created: true, error: "" });
     mockGetWorktreePath.mockResolvedValue("/wt");
     mockFindClaude.mockResolvedValue("/usr/bin/claude");
     mockBuildClaudeArgs.mockReturnValue(["x"]);

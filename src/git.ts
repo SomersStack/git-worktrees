@@ -22,6 +22,10 @@ async function getWorktreeDir(
   cwd?: string,
 ): Promise<string> {
   const result = await exec("git", ["rev-parse", "--show-toplevel"], { cwd });
+  if (result.exitCode !== 0) {
+    const msg = result.stderr.trim() || "not a git repository";
+    throw new Error(`Failed to find git root: ${msg}`);
+  }
   const repoRoot = result.stdout.trim();
   return path.resolve(repoRoot, "..", sanitizeBranch(branch));
 }
@@ -30,7 +34,7 @@ export async function createWorktree(
   branch: string,
   fromRef?: string,
   cwd?: string,
-): Promise<boolean> {
+): Promise<{ created: boolean; error: string }> {
   const wtPath = await getWorktreeDir(branch, cwd);
 
   // Try creating a new branch
@@ -39,7 +43,7 @@ export async function createWorktree(
     : ["worktree", "add", "-b", branch, wtPath];
 
   const result = await exec("git", args, { cwd });
-  if (result.exitCode === 0) return true;
+  if (result.exitCode === 0) return { created: true, error: "" };
 
   // Branch may already exist — try attaching without -b
   const fallback = await exec(
@@ -47,7 +51,11 @@ export async function createWorktree(
     ["worktree", "add", wtPath, branch],
     { cwd },
   );
-  return fallback.exitCode === 0;
+  if (fallback.exitCode === 0) return { created: true, error: "" };
+
+  // Both attempts failed — return the most relevant error
+  const error = fallback.stderr.trim() || result.stderr.trim() || "unknown error";
+  return { created: false, error };
 }
 
 export async function worktreeExists(
@@ -152,6 +160,8 @@ export async function removeWorktree(
   if (result.exitCode === 0) {
     // Best-effort delete the branch
     await exec("git", ["branch", "-d", branch], { cwd });
+  } else if (result.stderr.trim()) {
+    process.stderr.write(`Warning: worktree remove failed: ${result.stderr.trim()}\n`);
   }
   return result.exitCode === 0;
 }

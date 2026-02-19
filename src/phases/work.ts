@@ -28,18 +28,18 @@ export async function phaseWork(options: GwtOptions): Promise<PhaseContext> {
 
   // Create worktree via git gtr (or reuse if it exists)
   logStep(`Creating worktree for branch: ${options.branch}`);
-  const created = await createWorktree(
+  const result = await createWorktree(
     options.branch,
     options.fromRef || undefined,
     sourceDir,
   );
 
-  if (!created) {
+  if (!result.created) {
     const exists = await worktreeExists(options.branch, sourceDir);
     if (exists) {
       logWarn("Worktree already exists, reusing it");
     } else {
-      throw new Error("Failed to create worktree");
+      throw new Error(`Failed to create worktree: ${result.error}`);
     }
   }
 
