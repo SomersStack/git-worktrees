@@ -61,6 +61,7 @@ export function parseArgs(argv: string[]): GwtOptions | null {
   let noCleanup = false;
   let workOnly = false;
   let extraClaudeFlags: string[] = [];
+  const positionals: string[] = [];
 
   let i = 0;
   while (i < argv.length) {
@@ -120,29 +121,40 @@ export function parseArgs(argv: string[]): GwtOptions | null {
           console.log(USAGE);
           process.exit(1);
         }
-        if (!branch) {
-          branch = arg;
-        } else if (!prompt) {
-          prompt = arg;
-        } else {
-          logError(`Unexpected argument: ${arg}`);
-          console.log(USAGE);
-          process.exit(1);
-        }
+        positionals.push(arg);
         i++;
         break;
     }
   }
 
-  // Single positional arg → treat as prompt, auto-generate branch
-  if (branch && !prompt) {
-    prompt = branch;
+  // Resolve positionals into branch + prompt.
+  // Git branch names cannot contain spaces, so any positional with spaces is a
+  // prompt fragment (this commonly happens when shell quoting goes wrong and a
+  // single quoted prompt is split into multiple argv entries).
+  if (positionals.length === 0) {
+    // No args → fresh session with auto-generated branch
     branch = generateBranchName();
-  }
-
-  // No args at all → fresh Claude session with auto-generated branch
-  if (!branch && !prompt) {
+  } else if (positionals.length === 1) {
+    const arg = positionals[0];
+    if (arg.includes(" ")) {
+      // Contains spaces → must be a prompt, not a branch
+      branch = generateBranchName();
+      prompt = arg;
+    } else {
+      // Could be a branch name; treat as prompt with auto-generated branch
+      // (matching the original single-arg behavior)
+      branch = generateBranchName();
+      prompt = arg;
+    }
+  } else if (positionals.length === 2 && !positionals[0].includes(" ")) {
+    // Classic:  gwt <branch> "<prompt>"
+    branch = positionals[0];
+    prompt = positionals[1];
+  } else {
+    // Multiple args or first arg has spaces → shell probably mangled quoting.
+    // Join everything as the prompt and auto-generate a branch.
     branch = generateBranchName();
+    prompt = positionals.join(" ");
   }
 
   return {

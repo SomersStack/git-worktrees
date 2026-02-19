@@ -129,8 +129,21 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["feat/test", "prompt", "--bogus"])).toThrow();
   });
 
-  it("exits on unexpected positional", () => {
-    expect(() => parseArgs(["a", "b", "c"])).toThrow();
+  it("treats 3+ positionals as a mangled prompt and auto-generates branch", () => {
+    const opts = parseArgs(["a", "b", "c"]);
+    expect(opts?.prompt).toBe("a b c");
+    expect(opts?.branch).toMatch(/^gwt\/task-\d{8}-[0-9a-f]{4}$/);
+  });
+
+  it("handles shell-split quoted prompt (spaces in first positional)", () => {
+    // Simulates: gwt "Fix the thing and "also this" end"
+    // which the shell might split into:
+    //   ["Fix the thing and ", "also this", " end"]
+    // but more commonly:
+    //   ["Fix the thing and also", "this end"]
+    const opts = parseArgs(["Fix the thing and also", "this end"]);
+    expect(opts?.prompt).toBe("Fix the thing and also this end");
+    expect(opts?.branch).toMatch(/^gwt\/task-\d{8}-[0-9a-f]{4}$/);
   });
 
   it("defaults booleans to false and strings to empty", () => {
